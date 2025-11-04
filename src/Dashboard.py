@@ -4,132 +4,217 @@ import streamlit as st
 from pathlib import Path
 from streamlit.logger import get_logger
 
-# If you start the fast api server on a different port
-# make sure to change the port below
 FASTAPI_BACKEND_ENDPOINT = "http://localhost:8000"
-
-# Make sure you have iris_model.pkl file in FastAPI_Labs/src folder.
-# If it's missing run train.py in FastAPI_Labs/src folder
-# If your FastAPI_Labs folder name is different, update accordingly in the following path
-FASTAPI_IRIS_MODEL_LOCATION = Path(__file__).resolve().parents[2] / 'FastAPI_Labs' / 'model' / 'iris_model.pkl'
-
-# streamlit logger
 LOGGER = get_logger(__name__)
 
 def run():
-    # Set the main dashboard page browser tab title and icon
     st.set_page_config(
-        page_title="Iris Flower Prediction Demo",
-        page_icon="🪻",
+        page_title="ML Model Prediction Demo",
+        page_icon="🤖",
+        layout="wide"
     )
-
-    # Build the sidebar first
-    # This sidebar context gives access to work on elements in the side panel
+    
+    # Sidebar
     with st.sidebar:
-        # Check the status of backend
+        st.title("🤖 ML Predictor")
+        
+        # Check backend status
         try:
-            # Make sure fast api is running. Check the lab for guidance on getting
-            # the server up and running
-            backend_request = requests.get(FASTAPI_BACKEND_ENDPOINT)
-            # If backend returns successful connection (status code: 200)
+            backend_request = requests.get(f"{FASTAPI_BACKEND_ENDPOINT}/health")
             if backend_request.status_code == 200:
-                # This creates a green box with message
+                health_data = backend_request.json()
                 st.success("Backend online ✅")
+                st.info(f"Models loaded: {', '.join(health_data['models_loaded'])}")
             else:
-                # This creates a yellow bow with message
                 st.warning("Problem connecting 😭")
         except requests.ConnectionError as ce:
-            LOGGER.error(ce)
-            LOGGER.error("Backend offline 😱")
-            # Show backend offline message
             st.error("Backend offline 😱")
-
-        st.info("Configure parameters")
-        # Set the values
-        # sepal_length = st.slider("Sepal Length",4.3, 7.9, 4.3, 0.1, help="Sepal length in centimeter (cm)", format="%f")
-        # sepal_width = st.slider("Sepal Width",2.0, 4.4, 2.0, 0.1, help="Sepal width in centimeter (cm)", format="%f")
-        # petal_length = st.slider("Petal Length",1.0, 6.9, 1.0, 0.1, help="Petal length in centimeter (cm)", format="%f")
-        # petal_width = st.slider("Petal Width",0.1, 2.5, 0.1, 0.1, help="Petal width in centimeter (cm)", format="%f")
         
-        # Take JSON file as input
-        test_input_file = st.file_uploader('Upload test prediction file',type=['json'])
-
-        # Check if client has provided input test file
-        if test_input_file:
-            # Quick preview functionality for JSON input file
-            st.write('Preview file')
-            test_input_data = json.load(test_input_file)
-            st.json(test_input_data)
-            # Session is necessary, because the sidebar context acts within a 
-            # scope, so to access information outside the scope
-            # we need to save the information into a session variable
-            st.session_state["IS_JSON_FILE_AVAILABLE"] = True
-        else:
-            # If user adds file, then performs prediction and then removes
-            # file, the session var should revert back since file 
-            # is not available
-            st.session_state["IS_JSON_FILE_AVAILABLE"] = False
+        st.divider()
+        
+        # Model selection
+        model_type = st.selectbox(
+            "Select Model",
+            ["Iris Flower", "Wine Classification"]
+        )
+        
+        # Input method selection
+        input_method = st.radio(
+            "Input Method",
+            ["Manual Input", "Upload JSON"]
+        )
+        
+        st.divider()
+        
+        # Input based on method
+        if input_method == "Manual Input":
+            if model_type == "Iris Flower":
+                st.subheader("🌸 Iris Parameters")
+                sepal_length = st.slider("Sepal Length", 4.3, 7.9, 5.1, 0.1)
+                sepal_width = st.slider("Sepal Width", 2.0, 4.4, 3.5, 0.1)
+                petal_length = st.slider("Petal Length", 1.0, 6.9, 1.4, 0.1)
+                petal_width = st.slider("Petal Width", 0.1, 2.5, 0.2, 0.1)
+                
+                manual_data = {
+                    "sepal_length": sepal_length,
+                    "sepal_width": sepal_width,
+                    "petal_length": petal_length,
+                    "petal_width": petal_width
+                }
+                
+            else:  # Wine
+                st.subheader("🍷 Wine Parameters")
+                col1, col2 = st.columns(2)
+                with col1:
+                    alcohol = st.number_input("Alcohol", 11.0, 15.0, 13.2)
+                    malic_acid = st.number_input("Malic Acid", 0.5, 6.0, 1.78)
+                    ash = st.number_input("Ash", 1.0, 4.0, 2.14)
+                    alcalinity = st.number_input("Alcalinity", 10.0, 30.0, 11.2)
+                    magnesium = st.number_input("Magnesium", 70.0, 160.0, 100.0)
+                    total_phenols = st.number_input("Total Phenols", 0.5, 4.0, 2.65)
+                
+                with col2:
+                    flavanoids = st.number_input("Flavanoids", 0.5, 5.0, 2.76)
+                    nonflavanoid = st.number_input("Nonflavanoid", 0.1, 0.7, 0.26)
+                    proanthocyanins = st.number_input("Proanthocyanins", 0.4, 3.5, 1.28)
+                    color_intensity = st.number_input("Color Intensity", 1.0, 13.0, 4.38)
+                    hue = st.number_input("Hue", 0.5, 1.8, 1.05)
+                    od280 = st.number_input("OD280/OD315", 1.0, 4.0, 3.40)
+                    proline = st.number_input("Proline", 200.0, 2000.0, 1050.0)
+                
+                manual_data = {
+                    "alcohol": alcohol,
+                    "malic_acid": malic_acid,
+                    "ash": ash,
+                    "alcalinity_of_ash": alcalinity,
+                    "magnesium": magnesium,
+                    "total_phenols": total_phenols,
+                    "flavanoids": flavanoids,
+                    "nonflavanoid_phenols": nonflavanoid,
+                    "proanthocyanins": proanthocyanins,
+                    "color_intensity": color_intensity,
+                    "hue": hue,
+                    "od280_od315_of_diluted_wines": od280,
+                    "proline": proline
+                }
             
-        # Predict button
-        predict_button = st.button('Predict')
-
-    # Dashboard body
-    # Heading for the dashboard
-    st.write("# Iris Flower Prediction! 🪻")
-    # If predict button is pressed
-    if predict_button:
-        # check if file is available
-        if "IS_JSON_FILE_AVAILABLE" in st.session_state and st.session_state["IS_JSON_FILE_AVAILABLE"]:
-            # Check if iris_model.pkl is in FastAPI folder
-            if FASTAPI_IRIS_MODEL_LOCATION.is_file():
-                # The input needs to be converted from dictionary
-                # to JSON since content exchange format type is set
-                # as JSON by default
-                # client_input = json.dumps({
-                #     "petal_length": petal_length,
-                #     "sepal_length": sepal_length,
-                #     "petal_width": petal_width,
-                #     "sepal_width": sepal_width
-                # })
-                client_input = json.dumps(test_input_data['input_test'])
-                try:
-                    # This holds the result. Acts like a placeholder
-                    # that we can fill and empty as required
-                    result_container = st.empty()
-                    # While the model predicts show a spinner indicating model is
-                    # running the prediction
-                    with st.spinner('Predicting...'):
-                        # Send post request to backend predict endpoint
-                        predict_iris_response = requests.post(f'{FASTAPI_BACKEND_ENDPOINT}/predict', client_input)
-                    # If prediction status OK
-                    if predict_iris_response.status_code == 200:
-                        # Convert response from JSON to dictionary
-                        iris_content = json.loads(predict_iris_response.content)
-                        start_sentence = "The flower predicted is: "
-                        if iris_content["response"] == 0:
-                            result_container.success(f"{start_sentence} setosa")
-                        elif iris_content["response"] == 1:
-                            result_container.success(f"{start_sentence} versicolor")
-                        elif iris_content["response"] == 2:
-                            result_container.success(f"{start_sentence} virginica")
-                        else:
-                            result_container.error("Some problem occured while prediction")
-                            LOGGER.error("Problem during prediction")
-                    else:
-                        # Pop up notification at bottom-left if backend is down
-                        st.toast(f':red[Status from server: {predict_iris_response.status_code}. Refresh page and check backend status]', icon="🔴")
-                except Exception as e:
-                    # Pop up notification if backend is down
-                    st.toast(':red[Problem with backend. Refresh page and check backend status]', icon="🔴")
-                    LOGGER.error(e)
+            st.session_state["input_data"] = manual_data
+            st.session_state["data_available"] = True
+            
+        else:  # Upload JSON
+            test_input_file = st.file_uploader('Upload test JSON', type=['json'])
+            
+            if test_input_file:
+                st.write('Preview:')
+                test_input_data = json.load(test_input_file)
+                st.json(test_input_data)
+                
+                # Extract the actual data
+                if "input_test" in test_input_data:
+                    st.session_state["input_data"] = test_input_data["input_test"]
+                else:
+                    st.session_state["input_data"] = test_input_data
+                    
+                st.session_state["data_available"] = True
             else:
-                # Message for iris_model.pkl not found
-                LOGGER.warning('iris_model.pkl not found in FastAPI Lab. Make sure to run train.py to get the model.')
-                st.toast(':red[Model iris_model.pkl not found. Please run the train.py file in FastAPI Lab]', icon="🔥")
+                st.session_state["data_available"] = False
+        
+        # Load example button
+        if st.button("Load Example", help="Load example data"):
+            if model_type == "Iris Flower":
+                example_response = requests.get(f"{FASTAPI_BACKEND_ENDPOINT}/iris/example")
+                if example_response.status_code == 200:
+                    example = example_response.json()
+                    st.session_state["input_data"] = example["example_input"]
+                    st.session_state["data_available"] = True
+                    st.success("Example loaded!")
+            else:
+                example_response = requests.get(f"{FASTAPI_BACKEND_ENDPOINT}/wine/example")
+                if example_response.status_code == 200:
+                    example = example_response.json()
+                    st.session_state["input_data"] = example["example_input"]
+                    st.session_state["data_available"] = True
+                    st.success("Example loaded!")
+        
+        # Predict button
+        predict_button = st.button('🔮 Predict', type='primary', use_container_width=True)
+    
+    # Main body
+    st.title(f"{'🌸 Iris Flower' if model_type == 'Iris Flower' else '🍷 Wine'} Classification")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("Input Data")
+        if st.session_state.get("data_available", False):
+            st.json(st.session_state["input_data"])
         else:
-            # Message for invalid JSON file
-            LOGGER.error('Provide a valid JSON file with input_test field')
-            st.toast(':red[Please upload a JSON test file. Check data folder for test file.]')
+            st.info("Please provide input data using the sidebar")
+    
+    with col2:
+        st.subheader("Prediction Result")
+        result_container = st.empty()
+        
+        if predict_button and st.session_state.get("data_available", False):
+            with st.spinner('Predicting...'):
+                try:
+                    # Determine endpoint
+                    if model_type == "Iris Flower":
+                        endpoint = f"{FASTAPI_BACKEND_ENDPOINT}/iris/predict"
+                    else:
+                        endpoint = f"{FASTAPI_BACKEND_ENDPOINT}/wine/predict"
+                    
+                    # Send request
+                    response = requests.post(
+                        endpoint,
+                        json=st.session_state["input_data"],
+                        headers={'Content-Type': 'application/json'}
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        
+                        if model_type == "Iris Flower":
+                            prediction = result.get("prediction", result.get("class_id"))
+                            species = result.get("species", result.get("class_name"))
+                            confidence = result.get("confidence", "N/A")
+                            
+                            result_container.success(f"""
+                            ### 🌸 Prediction: {species}
+                            - **Class ID**: {prediction}
+                            - **Confidence**: {confidence:.2%} if isinstance(confidence, (int, float)) else confidence
+                            """)
+                        else:
+                            prediction = result.get("prediction", result.get("class_id"))
+                            wine_class = result.get("wine_class", result.get("class_name"))
+                            confidence = result.get("confidence", "N/A")
+                            
+                            result_container.success(f"""
+                            ### 🍷 Prediction: {wine_class}
+                            - **Class ID**: {prediction}
+                            - **Confidence**: {confidence:.2%} if isinstance(confidence, (int, float)) else confidence
+                            """)
+                    else:
+                        result_container.error(f"Error: {response.status_code}\n{response.text}")
+                        
+                except Exception as e:
+                    result_container.error(f"Prediction failed: {str(e)}")
+    
+    # Footer with API info
+    with st.expander("📚 API Documentation"):
+        st.markdown("""
+        ### Available Endpoints:
+        - `GET /` - Welcome message
+        - `GET /health` - Health check
+        - `POST /iris/predict` - Iris prediction
+        - `POST /wine/predict` - Wine prediction
+        - `GET /iris/example` - Iris example data
+        - `GET /wine/example` - Wine example data
+        - `POST /predict` - Legacy iris endpoint
+        
+        ### FastAPI Interactive Docs:
+        Visit http://localhost:8000/docs for interactive API documentation
+        """)
 
 if __name__ == "__main__":
     run()
